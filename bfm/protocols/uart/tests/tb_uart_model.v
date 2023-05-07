@@ -2,7 +2,8 @@
 `default_nettype none
 
 module tb_uart_harness(
-    input wire rx
+    input  wire rx,
+    output wire tx
 );
 
 initial 
