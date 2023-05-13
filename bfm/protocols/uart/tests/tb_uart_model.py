@@ -65,9 +65,11 @@ async def _test_normal(dut):
     dut.tx.value = 1
     len = 8
     baudrate = 9600
+    stopbits = 1
+    parity = "none"
     bit_time = Timer(int(1e9/baudrate), 'ns')
     half_bit_time = Timer(int(1e9/baudrate/2), 'ns')
-    uart = uartModel(dut.rx,dut.tx,9600)
+    uart = uartModel(dut.rx,dut.tx,baudrate)
     rx=cocotb.start_soon(uart.updateRxBuff())
     tx=cocotb.start_soon(recive_uart(dut.tx,bit_time,half_bit_time,8,"none",1))
     await Timer(1000, units="ns")
