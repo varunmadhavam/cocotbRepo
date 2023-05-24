@@ -2,6 +2,7 @@ import logging
 from cocotb.triggers import RisingEdge, FallingEdge, Timer
 from cocotb.queue import Queue
 from cocotb.utils import get_sim_time, get_time_from_sim_steps
+from cocotb.types import LogicArray, Range
 
 class uartModel:
     def __init__(self,rx_in,tx_out,baudrate=9600,stopbits=1,parity="none",width=8):
@@ -24,8 +25,9 @@ class uartModel:
         
     def check_parity(self,parity_bit):
         onecount = 0
+        rxBuffV = LogicArray(self.rxBuff, Range(self.width-1, 'downto', 0))
         for i in range(self.width):
-            if(self.rxBuff[i]==1):
+            if(rxBuffV[i]==1):
                 onecount = onecount + 1
         if(parity_bit == 1):
             onecount = onecount + 1
