@@ -14,16 +14,16 @@ def check_parity(txBuff,parity,width,parity_bit):
         onecount = 0
         txBuffV = LogicArray(txBuff, Range(width-1, 'downto', 0))
         for i in range(width):
-            if(txBuffV[i]==1):
+            if(int(txBuffV[i])==1):
                 onecount = onecount + 1
         if(parity_bit == 1):
             onecount = onecount + 1
         if(parity == "even"):
-            assert onecount%2 == 0 , "check for even parity failed(bfm)"
+            assert onecount%2 == 0 , "check for even parity failed(tb) {}".format(onecount)
         elif(parity == "odd"):
-            assert onecount%2 == 1 , "check for odd parity failed(bfm)"
+            assert onecount%2 == 1 , "check for odd parity failed(tb)"
         else:
-            assert 1 == 0, "unsupported parity(bfm)"
+            assert 1 == 0, "unsupported parity(tb)"
 
 txqueue = Queue()
 async def recive_uart(tx,bit_time,half_bit_time,len,parity,stopbits):
@@ -37,7 +37,6 @@ async def recive_uart(tx,bit_time,half_bit_time,len,parity,stopbits):
             if(bitcount == len):
                 txqueue.put_nowait(txBuff)
                 bitcount = 0
-                txBuff = 0
                 break
             await bit_time
             txBuff = txBuff | tx.value.integer << bitcount
@@ -50,6 +49,7 @@ async def recive_uart(tx,bit_time,half_bit_time,len,parity,stopbits):
         if(stopbits == 2):
             await bit_time
             assert tx.value.integer == 1, "error in second stop bit(tb)"
+        txBuff = 0
 
 async def send_a_byte(byte,len,rx,bit_time,stopbits,error_stop_b,parity,error_parity):
     rx.value = 0
@@ -85,29 +85,36 @@ async def send_a_byte(byte,len,rx,bit_time,stopbits,error_stop_b,parity,error_pa
 async def _test_normal(dut):
     dut.rx.value = 1
     dut.tx.value = 1
-    len = 8
-    baudrate = 9600
-    stopbits = 2
-    parity = "even"
-    bit_time = Timer(int(1e9/baudrate), 'ns')
-    half_bit_time = Timer(int(1e9/baudrate/2), 'ns')
-    uart = uartModel(dut.rx,dut.tx,baudrate,stopbits,parity,len)
-    rx=cocotb.start_soon(uart.updateRxBuff())
-    tx=cocotb.start_soon(recive_uart(dut.tx,bit_time,half_bit_time,8,"none",1))
-    await Timer(1000, units="ns")
-    for i in range(100):
-        int_data = random.randint(0, 255)
-        data = LogicArray(int_data, Range(7, 'downto', 0))
-        await send_a_byte(data,len,dut.rx,bit_time,stopbits,0,parity,0)
-        await Timer(10, units="ns")
-        received = uart.get_rx_queue()
-        assert  received == int_data, "data mismatch in bfm recieved = {} expected = {} (tb)".format(hex(received),hex(int_data))
-        await uart.updateTxBuff(LogicArray(received, Range(7, 'downto', 0)))
-        expected = txqueue.get_nowait()
-        assert  received == int_data, "data mismatch in tx recieved = {} expected = {} (tb)".format(hex(received),hex(int_data))
-        await Timer(10, units="ns")
-    rx.kill()
-    tx.kill()
+    len_list=[5,6,7,8]
+    baud_list=[9600,19200,38400,57600,115200]
+    stopbit_list=[1,2]
+    parity_list=["even","odd","none"]
+    for _ in range(1):
+        len      = random.choices(len_list,    weights=(25,25,25,25),k=1)[0]
+        baudrate = random.choices(baud_list,   weights=(20,20,20,20,20),k=1)[0]
+        stopbits = random.choices(stopbit_list,weights=(50,50),k=1)[0]
+        parity   = random.choices(parity_list, weights=(40,30,30),k=1)[0]
+        insert_parity_error = 0
+        insert_stopbit_error = 0
+        bit_time = Timer(int(1e9/baudrate), 'ns')
+        half_bit_time = Timer(int(1e9/baudrate/2), 'ns')
+        uart = uartModel(dut.rx,dut.tx,baudrate,stopbits,parity,len)
+        rx=cocotb.start_soon(uart.updateRxBuff())
+        tx=cocotb.start_soon(recive_uart(dut.tx,bit_time,half_bit_time,8,"none",1))
+        await Timer(1000, units="ns")
+        for i in range(100):
+            int_data = random.randint(0, 255)
+            data = LogicArray(int_data, Range(7, 'downto', 0))
+            await send_a_byte(data,len,dut.rx,bit_time,stopbits,insert_stopbit_error,parity,insert_parity_error)
+            await Timer(10, units="ns")
+            received = uart.get_rx_queue()
+            assert  received == int_data, "data mismatch in bfm recieved = {} expected = {} (tb)".format(hex(received),hex(int_data))
+            await uart.updateTxBuff(LogicArray(received, Range(7, 'downto', 0)))
+            expected = txqueue.get_nowait()
+            assert  received == int_data, "data mismatch in tx recieved = {} expected = {} (tb)".format(hex(received),hex(int_data))
+            await Timer(10, units="ns")
+        rx.kill()
+        tx.kill()
 
 @cocotb.test()
 async def _test_start_bit_error(dut):

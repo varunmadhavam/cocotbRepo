@@ -27,12 +27,12 @@ class uartModel:
         onecount = 0
         rxBuffV = LogicArray(self.rxBuff, Range(self.width-1, 'downto', 0))
         for i in range(self.width):
-            if(rxBuffV[i]==1):
+            if(int(rxBuffV[i])==1):
                 onecount = onecount + 1
         if(parity_bit == 1):
             onecount = onecount + 1
         if(self.parity == "even"):
-            assert onecount%2 == 0 , "check for even parity failed(bfm)"
+            assert onecount%2 == 0 , "check for even parity failed(bfm) {} {} {} {}".format(self.rxBuff,rxBuffV,parity_bit,onecount)
         elif(self.parity == "odd"):
             assert onecount%2 == 1 , "check for odd parity failed(bfm)"
         else:
@@ -55,7 +55,6 @@ class uartModel:
                 if(self.bitcount == self.width):
                     self.queue.put_nowait(self.rxBuff)
                     self.bitcount = 0
-                    self.rxBuff = 0
                     break
                 await self.bit_time
                 self.rxBuff = self.rxBuff | self.rx.value.integer << self.bitcount
@@ -68,6 +67,7 @@ class uartModel:
             if(self.stopbits == 2):
                 await self.bit_time
                 assert self.rx.value.integer == 1, "error in second stop it(bfm)"
+            self.rxBuff = 0
     
     async def updateTxBuff(self,data):
         self.tx.value = 0
